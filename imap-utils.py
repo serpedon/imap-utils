@@ -13,7 +13,7 @@ def parse_list_response(line):
     mailbox_name = mailbox_name.strip('"')
     return (flags, delimiter, mailbox_name)
 
-def scan_imap(imap4, imap_search, store_command = None)
+def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True)
     """
         imap4 an IMAP4-instance with performed login.
             e.g. imap4 = imaplib.IMAP4_SSL("imap.example.com", 993)
@@ -22,10 +22,13 @@ def scan_imap(imap4, imap_search, store_command = None)
 
         imap_search a search query for messages which shall be investigated
             e.g. imap_search = "(Flagged Undeleted)" # search flagged emails and return uids
-            or   imap_search = "(Flagged Undeleted)" # search flagged emails and return uids
+            or   imap_search = "(Header Message-ID <messageID@example.com>)" # search for a specific Message-ID
 
-        Returns a list of dictionaries of all messages which match imap_search
-            contained keys: Folder, Id, From, To, Subject, Date
+        store_command if given, a store command is issued on all found messages
+            e.g. store_command = ('+FLAGS', '\\Flagged') # to flag all found messages
+
+        If return_found_msg == True, the function returns a list of all messages which match imap_search
+            each message is represtend by a dictionary with keys: Folder, Id, From, To, Subject, Date
     """
 
     foundMsg = []
@@ -36,17 +39,24 @@ def scan_imap(imap4, imap_search, store_command = None)
     for mailbox in mailbox_list:
         (flags, delimiter, mailbox_name) = parse_list_response(mailbox.decode('utf-8'))
 
-        result, data = m.select('"' + mailbox_name + '"', readonly=True)
+        result, data = m.select('"' + mailbox_name + '"', readonly=(store_command is None))
         if not result == 'OK' : raise RuntimeError('m.select(' + mailbox_name + '): ' + result) 
 
         result, data = m.uid('search', None, search_imap)
         if not result == 'OK' : raise RuntimeError("m.uid(search, ...) in " + mailbox_name + '): ' + result)
 
         for num in data[0].split():
-        result, data = m.uid('fetch', num, '(BODY[HEADER])') # '(RFC822)' would load the whole message
-        if not result == 'OK' : raise RuntimeError("m.uid(fetch, ...) in " + mailbox_name + '): ' + result) 
+            if store_command is not None :
+                result, data = m.store(num, store_command[0], store_command[1])
+                if not result == 'OK' : raise RuntimeError('m.store(' + str(num) + ', ' + store_command + '): ' + result) 
 
-        email_message = email.message_from_bytes(data[0][1])
-        foundMsg.append( dict(Folder=mailbox_name, Id=email_message['Message-ID'], From=email_message['From'], To=email_message['To'], Subject=email_message['Subject'], Date=email_message['Date']) )
+            if return_found_msg :
+                result, data = m.uid('fetch', num, '(BODY[HEADER])') # '(RFC822)' would load the whole message
+                if not result == 'OK' : raise RuntimeError("m.uid(fetch, ...) in " + mailbox_name + '): ' + result) 
 
-    return foundMsg
+                email_message = email.message_from_bytes(data[0][1])
+                foundMsg.append( dict(Folder=mailbox_name, Id=email_message['Message-ID'], From=email_message['From'], To=email_message['To'], Subject=email_message['Subject'], Date=email_message['Date']) )
+
+    if return_found_msg :
+        return foundMsg
+
