@@ -28,7 +28,7 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True)
             e.g. store_command = ('+FLAGS', '\\Flagged') # to flag all found messages
 
         If return_found_msg == True, the function returns a list of all messages which match imap_search
-            each message is represtend by a dictionary with keys: Folder, Id, From, To, Subject, Date
+            each message is represented by a dictionary with keys: Folder, Id, From, To, Subject, Date
     """
 
     foundMsg = []
