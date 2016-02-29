@@ -13,7 +13,7 @@ def parse_list_response(line):
     mailbox_name = mailbox_name.strip('"')
     return (flags, delimiter, mailbox_name)
 
-def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True)
+def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True) : 
     """
         imap4 an IMAP4-instance with performed login.
             e.g. imap4 = imaplib.IMAP4_SSL("imap.example.com", 993)
@@ -33,26 +33,26 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True)
 
     foundMsg = []
 
-    result, mailbox_list = m.list()
-    if not result == 'OK' : raise RuntimeError('m.list(): ' + result) 
+    result, mailbox_list = imap4.list()
+    if not result == 'OK' : raise RuntimeError('imap4.list(): ' + result) 
 
     for mailbox in mailbox_list:
         (flags, delimiter, mailbox_name) = parse_list_response(mailbox.decode('utf-8'))
 
-        result, data = m.select('"' + mailbox_name + '"', readonly=(store_command is None))
-        if not result == 'OK' : raise RuntimeError('m.select(' + mailbox_name + '): ' + result) 
+        result, data = imap4.select('"' + mailbox_name + '"', readonly=(store_command is None))
+        if not result == 'OK' : raise RuntimeError('imap4.select(' + mailbox_name + '): ' + result) 
 
-        result, data = m.uid('search', None, search_imap)
-        if not result == 'OK' : raise RuntimeError("m.uid(search, ...) in " + mailbox_name + '): ' + result)
+        result, data = imap4.uid('search', None, imap_search)
+        if not result == 'OK' : raise RuntimeError("imap4.uid(search, ...) in " + mailbox_name + '): ' + result)
 
         for num in data[0].split():
             if store_command is not None :
-                result, data = m.store(num, store_command[0], store_command[1])
-                if not result == 'OK' : raise RuntimeError('m.store(' + str(num) + ', ' + store_command + '): ' + result) 
+                result, data = imap4.store(num, store_command[0], store_command[1])
+                if not result == 'OK' : raise RuntimeError('imap4.store(' + str(num) + ', ' + store_command + '): ' + result) 
 
             if return_found_msg :
-                result, data = m.uid('fetch', num, '(BODY[HEADER])') # '(RFC822)' would load the whole message
-                if not result == 'OK' : raise RuntimeError("m.uid(fetch, ...) in " + mailbox_name + '): ' + result) 
+                result, data = imap4.uid('fetch', num, '(BODY[HEADER])') # '(RFC822)' would load the whole message
+                if not result == 'OK' : raise RuntimeError("imap4.uid(fetch, ...) in " + mailbox_name + '): ' + result) 
 
                 email_message = email.message_from_bytes(data[0][1])
                 foundMsg.append( dict(Folder=mailbox_name, Id=email_message['Message-ID'], From=email_message['From'], To=email_message['To'], Subject=email_message['Subject'], Date=email_message['Date']) )
