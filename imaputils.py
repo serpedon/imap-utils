@@ -47,8 +47,8 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True)
 
         for num in data[0].split():
             if store_command is not None :
-                result, data = imap4.store(num, store_command[0], store_command[1])
-                if not result == 'OK' : raise RuntimeError('imap4.store(' + str(num) + ', ' + store_command + '): ' + result) 
+                result, data = imap4.uid('store', num, store_command[0], store_command[1])
+                if not result == 'OK' : raise RuntimeError('imap4.uid(store, ' + str(num) + ', ' + store_command + '): ' + result) 
 
             if return_found_msg :
                 result, data = imap4.uid('fetch', num, '(BODY[HEADER])') # '(RFC822)' would load the whole message
