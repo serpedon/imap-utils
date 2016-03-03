@@ -8,10 +8,13 @@ import imaplib
 import email
 import re
 list_response_pattern = re.compile(r'\((?P<flags>.*?)\) "(?P<delimiter>.*)" (?P<name>.*)')
+
+
 def parse_list_response(line):
     flags, delimiter, mailbox_name = list_response_pattern.match(line).groups()
     mailbox_name = mailbox_name.strip('"')
     return (flags, delimiter, mailbox_name)
+
 
 def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True) : 
     """
@@ -59,4 +62,27 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True)
 
     if return_found_msg :
         return foundMsg
+
+
+def store_imap(imap4, directory) : 
+    result, mailbox_list = imap4.list()
+    if not result == 'OK' : raise RuntimeError('imap4.list(): ' + result) 
+
+    from mailbox import mbox
+    for mailbox in mailbox_list:
+        (flags, delimiter, mailbox_name) = parse_list_response(mailbox.decode('utf-8'))
+        
+        mbox_file = mbox(directory + '/' + mailbox_name)
+
+        result, data = imap4.select('"' + mailbox_name + '"', readonly=True)
+        if not result == 'OK' : raise RuntimeError('imap4.select(' + mailbox_name + '): ' + result)
+
+        result, data = imap4.uid('search', None, '(UNDELETED)' )
+        if not result == 'OK' : raise RuntimeError("imap4.uid(search, ...) in " + mailbox_name + '): ' + result)
+
+        for num in data[0].split():
+            result, data = imap4.uid('fetch', num, '(RFC822)') # '(RFC822)' loads the whole message
+            if not result == 'OK' : raise RuntimeError("imap4.uid(fetch, ...) in " + mailbox_name + '): ' + result) 
+
+            mbox_file.add(data[0][1])
 
