@@ -2,7 +2,7 @@
 # This work is licensed under GPL 3, see LICENSE
 # Author: Michael Walz <code@serpedon.de>, © 2016
 
-__all__ = ['scan_imap']
+__all__ = ['scan_imap', 'store_imap' ]
 
 import imaplib
 import email
@@ -18,7 +18,7 @@ def parse_list_response(line):
 
 def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True) : 
     """
-        imap4 an IMAP4-instance with performed login.
+        imap4 is an IMAP4-instance with performed login.
             e.g. imap4 = imaplib.IMAP4_SSL("imap.example.com", 993)
                  imap4.login("username","password")
                  (after usage, imap4.close(); imap4.logout() is closed the connection)
