@@ -135,7 +135,6 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
                 if 'content-transfer-encoding' not in message : 
                     print('Fixing payload: adding key content-transfer-encoding')
                     message['content-transfer-encoding'] = None
-
                    
     # Search for all messages that are not deleted
     allMsgHeaders = scan_imap(imap4, imap_search="(Undeleted)")
@@ -167,12 +166,12 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
                 if not (filename == filename2) : raise RuntimeError('Error: filenames do not match: ' + filename + ' ; ' + filename2) 
 
                 full_path_tilde = full_path + '~'
-                with open(full_path_tilde, 'w') as outfile :
+                with open(full_path_tilde, 'w', errors="surrogateescape") as outfile :
                     message = full_msg['Message']
                     gen = generator.Generator(outfile, mangle_from_=False)
                     try :
                         gen.flatten(message)
-                    except KeyError:
+                    except KeyError :
                         fix_cte(message)
                         gen.flatten(message)
                        
