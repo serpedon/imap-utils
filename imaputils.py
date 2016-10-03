@@ -103,9 +103,7 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
 
     # helper functions
     def gen_filename(mail_dict) :
-        """
-            Generates a filename from a dictionary with keys 'Id', 'Date', 'Folder'
-        """
+        """ Generates a filename from a dictionary with keys 'Id', 'Date', 'Folder' """
         from email.utils import parsedate_to_datetime
         dateObj = parsedate_to_datetime(mail_dict['Date'])
         fulldate = dateObj.strftime("%Y-%m-%d_%H.%M_utc%z")
@@ -118,9 +116,27 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
         return os.path.join(Folder, year, fulldate + "_" + Id + '.eml')
 
     def create_dir_if_not_exist(folder) :
+        """ Creates a directory and all its parents if necessary. """
         if not os.path.exists(folder) :
             os.makedirs(folder)
-    
+
+    def  fix_cte(message) :
+        """
+            Cycles through all internal messages, tests if they are convertable to string,
+            and if not (because of a KeyError) adds the field 'content-transfer-encoding'.
+        """
+        if message.is_multipart() :
+            for payload in message.get_payload() :
+                fix_cte(payload)
+        try :
+            string = str(message)
+        except KeyError as err :
+            if len(err.args) > 0 and err.args[0] == 'content-transfer-encoding' : 
+                if 'content-transfer-encoding' not in message : 
+                    print('Fixing payload: adding key content-transfer-encoding')
+                    message['content-transfer-encoding'] = None
+
+                   
     # Search for all messages that are not deleted
     allMsgHeaders = scan_imap(imap4, imap_search="(Undeleted)")
 
@@ -135,6 +151,9 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
         filename = gen_filename(msg)
         full_path = os.path.join(backup_folder, filename)
         directory = os.path.dirname(full_path)
+        if full_path in paths_of_all_msg :
+            print('Warning: %s has been found multiple times on the server' % filename)
+            continue	
         paths_of_all_msg |= { full_path }
         create_dir_if_not_exist(directory)
         if os.path.exists(full_path) :
@@ -142,15 +161,21 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
         else :
             msg_downloaded += 1
             print('%s is new on server --> downloading' % (filename))
-            full_msgs = scan_imap(imap4, imap_search="(Header Message-ID " + msg['Id'] + ")", return_only_headers = False, mailbox_name = msg['Folder'])
+            full_msgs = scan_imap(imap4, imap_search="(Header Message-ID \"" + msg['Id'] + "\")", return_only_headers = False, mailbox_name = msg['Folder'])
             for full_msg in full_msgs :
                 filename2 = gen_filename(full_msg)
                 if not (filename == filename2) : raise RuntimeError('Error: filenames do not match: ' + filename + ' ; ' + filename2) 
 
                 full_path_tilde = full_path + '~'
-                with open(full_path_tilde, 'w') as outfile:
-                    gen = generator.Generator(outfile)
-                    gen.flatten(full_msg['Message'])
+                with open(full_path_tilde, 'w') as outfile :
+                    message = full_msg['Message']
+                    gen = generator.Generator(outfile, mangle_from_=False)
+                    try :
+                        gen.flatten(message)
+                    except KeyError:
+                        fix_cte(message)
+                        gen.flatten(message)
+                       
                 os.rename(full_path_tilde, full_path)
                 break
 
