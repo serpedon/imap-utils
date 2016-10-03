@@ -15,6 +15,10 @@ def parse_list_response(line):
     mailbox_name = mailbox_name.strip('"')
     return (flags, delimiter, mailbox_name)
 
+def clean(string) :
+    if type(string) == type(str()) :
+        return string.strip()
+    return string
 
 def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True, return_only_headers = True, mailbox_name = None) : 
     """
@@ -72,7 +76,7 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True,
 
                 email_message = email.message_from_bytes(data[0][1])
                 Message = None if return_only_headers else email_message
-                foundMsg.append( dict(Folder=mailbox_name, Id=email_message['Message-ID'], From=email_message['From'], To=email_message['To'], Subject=email_message['Subject'], Date=email_message['Date'], Message=Message) )
+                foundMsg.append( dict(Folder=mailbox_name, Id=clean(email_message['Message-ID']), From=clean(email_message['From']), To=clean(email_message['To']), Subject=clean(email_message['Subject']), Date=clean(email_message['Date']), Message=Message) )
 
     if return_found_msg :
         return foundMsg
@@ -104,10 +108,10 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
         """
         from email.utils import parsedate_to_datetime
         dateObj = parsedate_to_datetime(mail_dict['Date'])
-        fulldate = dateObj.strftime("%Y-%m-%m_%H.%M_utc%z")
+        fulldate = dateObj.strftime("%Y-%m-%d_%H.%M_utc%z")
         year = dateObj.strftime("%Y")
 
-        Id = mail_dict['Id'].replace('<', '').replace('>', '').replace('%', '')
+        Id = mail_dict['Id'].replace('<', '').replace('>', '').replace('%', '').replace('/', '-').replace(' ', '')
 
         Folder = mail_dict['Folder'].replace(' ', '_')
 
@@ -137,15 +141,17 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
             msg_already_existing += 1
         else :
             msg_downloaded += 1
-            print('%s is new own server --> downloading' % (filename))
+            print('%s is new on server --> downloading' % (filename))
             full_msgs = scan_imap(imap4, imap_search="(Header Message-ID " + msg['Id'] + ")", return_only_headers = False, mailbox_name = msg['Folder'])
             for full_msg in full_msgs :
                 filename2 = gen_filename(full_msg)
                 if not (filename == filename2) : raise RuntimeError('Error: filenames do not match: ' + filename + ' ; ' + filename2) 
 
-                with open(full_path, 'w') as outfile:
+                full_path_tilde = full_path + '~'
+                with open(full_path_tilde, 'w') as outfile:
                     gen = generator.Generator(outfile)
                     gen.flatten(full_msg['Message'])
+                os.rename(full_path_tilde, full_path)
                 break
 
 
@@ -169,9 +175,8 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
                 full_path = os.path.join(folder, filename)
                 if full_path in paths_of_all_msg :
                     if not os.path.isdir(full_path) : msg_keeping += 1
-                    #print(filename + " present")
                 else :
-                    if not os.path.isdir(full_path) : msg_move_to_deleted += 1
+                    msg_move_to_deleted += 1
                     parent_dir = os.path.dirname(full_path)
                     deleted_dir = os.path.join(parent_dir, deleted_folder)
                     create_dir_if_not_exist(deleted_dir)
