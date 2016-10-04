@@ -135,6 +135,13 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
                 if 'content-transfer-encoding' not in message : 
                     print('Fixing payload: adding key content-transfer-encoding')
                     message['content-transfer-encoding'] = None
+        except UnicodeEncodeError as err :
+            if len(err.args) > 4 and err.args[4] == 'character maps to <undefined>' :
+                print('Fixing payload: removing charset from content-type')
+                contentType = message['content-type']
+                del message['content-type']
+                message['content-type'] = re.sub(r'charset="[^"]*"', r'', contentType).strip()
+
                    
     # Search for all messages that are not deleted
     allMsgHeaders = scan_imap(imap4, imap_search="(Undeleted)")
@@ -171,7 +178,7 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
                     gen = generator.Generator(outfile, mangle_from_=False)
                     try :
                         gen.flatten(message)
-                    except KeyError :
+                    except (KeyError, UnicodeEncodeError) :
                         fix_cte(message)
                         gen.flatten(message)
                        
