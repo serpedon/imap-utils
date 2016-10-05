@@ -20,7 +20,7 @@ def clean(string) :
         return string.strip()
     return string
 
-def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True, return_only_headers = True, mailbox_name = None) : 
+def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True, return_only_headers = True, mailbox_name = None, ignore_mailboxes=set()) : 
     """
         The method scannes an imap-mailbox for messages.
 
@@ -46,6 +46,9 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True,
 
         mailbox_name is the name of an imap folder which can be given to imap4.select(mailbox_name).
         If set to None (default), the scan is performed for all imap folders.
+
+        ignore_mailboxes is a set of names (strings) which specify the mailboxes which are ignore while scanning.
+        The default is an empty set.
     """
 
     foundMsg = []
@@ -58,6 +61,8 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True,
     
     for mailbox in mailbox_list:
         (flags, delimiter, mailbox_name) = parse_list_response(mailbox.decode('utf-8'))
+
+        if mailbox_name in ignore_mailboxes : continue
 
         result, data = imap4.select('"' + mailbox_name + '"', readonly=(store_command is None))
         if not result == 'OK' : raise RuntimeError('imap4.select(' + mailbox_name + '): ' + result) 
@@ -81,7 +86,7 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True,
     if return_found_msg :
         return foundMsg
 
-def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
+def backup_imap(imap4, backup_folder, deleted_folder = '_deleted', ignore_mailboxes=set()) :
     """
         The method backups an imap-mailbox to local disk.
 
@@ -96,6 +101,9 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
         
         deleted_folder gives the name of the subfolder were messages that already exist on the local 
         disk but were deleted on the imap-server are moved to.
+
+        ignore_mailboxes is a set of names (strings) which specify the mailboxes which are not backuped.
+        The default is an empty set.
     """
 
     # imports
@@ -144,7 +152,7 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted') :
 
                    
     # Search for all messages that are not deleted
-    allMsgHeaders = scan_imap(imap4, imap_search="(Undeleted)")
+    allMsgHeaders = scan_imap(imap4, imap_search="(Undeleted)", ignore_mailboxes=ignore_mailboxes)
 
     msg_already_existing = 0
     msg_downloaded = 0
