@@ -212,19 +212,19 @@ def backup_imap(imap4, backup_folder, deleted_folder = '_deleted', ignore_mailbo
         for filename in os.listdir(folder) :
             if filename != deleted_folder :
                 full_path = os.path.join(folder, filename)
-                if full_path in paths_of_all_msg :
-                    if not os.path.isdir(full_path) : msg_keeping += 1
-                else :
-                    msg_move_to_deleted += 1
-                    parent_dir = os.path.dirname(full_path)
-                    deleted_dir = os.path.join(parent_dir, deleted_folder)
-                    create_dir_if_not_exist(deleted_dir)
-                    print('%s was removed from server --> moving to %s' % (full_path[(len(backup_folder)+1):], deleted_folder))
-                    os.rename(full_path, os.path.join(deleted_dir, filename))
-                
                 if os.path.isdir(full_path) :
                     move_deleted_messages(full_path)
-
+                else : 
+                    if full_path in paths_of_all_msg :
+                        msg_keeping += 1
+                    else :
+                        msg_move_to_deleted += 1
+                        parent_dir = os.path.dirname(full_path)
+                        deleted_dir = os.path.join(parent_dir, deleted_folder)
+                        create_dir_if_not_exist(deleted_dir)
+                        print('%s was removed from server --> moving to %s' % (full_path[(len(backup_folder)+1):], deleted_folder))
+                        os.rename(full_path, os.path.join(deleted_dir, filename))
+                
     move_deleted_messages(backup_folder)
 
     print("Summary (downloads):")
