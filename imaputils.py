@@ -7,6 +7,7 @@ __all__ = ['scan_imap', 'store_imap_to_mbox', 'backup_imap']
 import imaplib
 import email
 import re
+import time
 list_response_pattern = re.compile(r'\((?P<flags>.*?)\) "(?P<delimiter>.*)" (?P<name>.*)')
 
 
@@ -20,7 +21,7 @@ def clean(string) :
         return string.strip()
     return string
 
-def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True, return_only_headers = True, mailbox_name = None, ignore_mailboxes=set()) : 
+def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True, return_only_headers = True, mailbox_name = None, ignore_mailboxes = set(), sleep_after_x_messages = 100) : 
     """
         The method scannes an imap-mailbox for messages.
 
@@ -49,6 +50,8 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True,
 
         ignore_mailboxes is a set of names (strings) which specify the mailboxes which are ignore while scanning.
         The default is an empty set.
+
+        sleep_after_x_messages specifies the number of passed messages after which a 1s delay is included to prevent connection loses on overload-protected-connections. The default is 100 messages.
     """
 
     foundMsg = []
@@ -70,7 +73,12 @@ def scan_imap(imap4, imap_search, store_command = None, return_found_msg = True,
         result, data = imap4.uid('search', None, imap_search)
         if not result == 'OK' : raise RuntimeError("imap4.uid(search, ...) in " + mailbox_name + '): ' + result)
 
+        message_counter = 0
         for num in data[0].split():
+            message_counter = message_counter + 1
+            # make 1s sleep all sleep_after_x_messages messages to prevent connection loses on overload-protected-connections
+            if message_counter % sleep_after_x_messages == 0 :
+                time.sleep(1)
             if store_command is not None :
                 result, data = imap4.uid('store', num, store_command[0], store_command[1])
                 if not result == 'OK' : raise RuntimeError('imap4.uid(store, ' + str(num) + ', ' + store_command + '): ' + result) 
